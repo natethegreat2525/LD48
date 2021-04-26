@@ -106,7 +106,7 @@ export const originalSand = [
     density: .1,
     color: new THREE.Color(0xaaaaaa),
     convert: [{
-        prob: 0.0005,
+        prob: 0.01,
         value: 'air',
     }],
 },

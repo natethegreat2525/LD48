@@ -69,9 +69,9 @@ export class TerrainGenerator {
         const leaf = this.nameMap.get('leaf');
 
         const hasOre = this.noise1.noise2D(cx, cy);
-        const selectOre = [limestone, quartz, copper, iron, ruby, emerald, gold, diamond, unobtanium];
+        const selectOre = [limestone, copper, quartz, iron, ruby, emerald, gold, diamond, unobtanium];
         const oreBase = .2;
-        const whichOre = Math.floor(Math.min(9, cy/4) * (hasOre - oreBase) / (1 - oreBase));
+        const whichOre = Math.floor(Math.min(9, (cy+3)/4) * (hasOre - oreBase) / (1 - oreBase));
 
         let idx = 0;
 
@@ -152,8 +152,8 @@ export class TerrainGenerator {
                         
                     /* Ores
                      * 0 - Limestone
-                     * 1 - Quartz
-                     * 2 - Copper
+                     * 1 - Copper
+                     * 2 - Quartz
                      * 3 - Iron
                      * 4 - Ruby
                      * 5 - Emerald
@@ -161,9 +161,9 @@ export class TerrainGenerator {
                      * 7 - Diamond
                      * 8 - Unobtanium
                      */
-                    if (cy >= whichOre*4) {
+                    if (cy >= whichOre*4-3) {
                         // limestone, copper, iron, gold
-                        if (whichOre === 0 || whichOre === 2 || whichOre === 3 || whichOre === 6) {
+                        if (whichOre === 0 || whichOre === 1 || whichOre === 3 || whichOre === 6) {
                             const ang = this.noise2.noise2D(cx, cy) * Math.PI * 360;
                             // stripey ores
                             let xfin = rx*Math.sin(ang) + ry*Math.cos(ang);
@@ -179,7 +179,7 @@ export class TerrainGenerator {
             }
         }
 
-        if (hasOre > oreBase && cy >= whichOre*4 && (whichOre === 1 || whichOre === 4 || whichOre === 5 || whichOre === 7 || whichOre === 8)) {
+        if (hasOre > oreBase && cy >= whichOre*4-3 && (whichOre === 2 || whichOre === 4 || whichOre === 5 || whichOre === 7 || whichOre === 8)) {
             const xLoc = Math.abs((this.noise2.noise2D(cx, cy) * 1000) % 64);
             const yLoc = Math.abs((this.noise2.noise2D(cx, cy + 10) * 1000) % 64);
             let offsets = [[0, 0]];

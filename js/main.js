@@ -10,7 +10,6 @@ import { Chunk, sandProperties, SandWorld, STRIDE, WIDTH, nameMap } from './sand
 import { Player } from './player';
 import { shopMat } from './materials';
 
-
 const renderer = new THREE.WebGLRenderer();
 
 const width = 1200;
@@ -23,6 +22,7 @@ const numYChunks = Math.ceil(pix_height / WIDTH) + 1;
 const texPixWidth = numXChunks * WIDTH;
 const texPixHeight = numYChunks * WIDTH;
 
+let inMenu = true;
 
 renderer.setSize(width, height);
 console.log(document.getElementById('canvas-container'));
@@ -31,7 +31,7 @@ renderer.domElement.style = "position:absolute;top:0;left:0;";
 
 
 const camera = new THREE.OrthographicCamera(0, width, 0, height, -100, 100);
-const scene = new THREE.Scene();
+let scene = new THREE.Scene();
 const data = new Uint8Array(texPixWidth * texPixHeight*4);
 for (let i= 0; i < data.length; i++) {
     data[i] = Math.random() * 255;
@@ -50,27 +50,71 @@ const testMaterial = new THREE.MeshBasicMaterial({
 
 const viewOffset = new THREE.Vector3(pix_width/2, pix_height/2, 0);
 
-const planeGeometry = new THREE.PlaneGeometry(texPixWidth*4, texPixHeight*4);
+let planeGeometry = new THREE.PlaneGeometry(texPixWidth*4, texPixHeight*4);
 
-const mesh = new THREE.Mesh(planeGeometry, testMaterial);
+let mesh = new THREE.Mesh(planeGeometry, testMaterial);
 
-const lighting = new Lighting(texPixWidth, texPixHeight, mesh);
+let lighting = new Lighting(texPixWidth, texPixHeight, mesh);
 
 scene.add(mesh);
 
-const cameraPivot = new THREE.Object3D();
+let cameraPivot = new THREE.Object3D();
 scene.add(cameraPivot);
 
-const shop = new THREE.Mesh(new THREE.PlaneGeometry(90*4, 60*4), shopMat);
+let shop = new THREE.Mesh(new THREE.PlaneGeometry(90*4, 60*4), shopMat);
 shop.position.set(400, -100, -10);
 cameraPivot.add(shop);
 
 mesh.position.set(width/2, height/2, 0);
 
-const sandWorld = new SandWorld();
+let sandWorld = new SandWorld();
 
-const player = new Player(new Vector2(0, 0), sandWorld, scene);
+function resetGame() {
+    scene = new THREE.Scene();
+
+    planeGeometry = new THREE.PlaneGeometry(texPixWidth*4, texPixHeight*4);
+
+    mesh = new THREE.Mesh(planeGeometry, testMaterial);
+
+    lighting = new Lighting(texPixWidth, texPixHeight, mesh);
+
+    scene.add(mesh);
+
+    cameraPivot = new THREE.Object3D();
+    scene.add(cameraPivot);
+
+    shop = new THREE.Mesh(new THREE.PlaneGeometry(90*4, 60*4), shopMat);
+    shop.position.set(400, -100, -10);
+    cameraPivot.add(shop);
+
+    mesh.position.set(width/2, height/2, 0);
+
+    sandWorld = new SandWorld();
+    player = new Player(new Vector2(0, 0), sandWorld, scene);
+    entities[0] = player;
+    viewOffset.x = player.body.position.x;
+    viewOffset.y = player.body.position.y;
+}
+
+let music = new Audio('bellcave.wav');
+music.loop = true;
+setInterval(() => {
+    music.play();
+}, 1000);
+
+function unhideHUD() {
+    let title = document.getElementById('title');
+    title.style.display = 'none';
+    let hud = document.getElementById('hud');
+    hud.style.display = 'block';
+}
+
+let player = new Player(new Vector2(0, 0), sandWorld, scene);
+player.dead = true;
 const entities = [player];
+viewOffset.x = player.body.position.x;
+viewOffset.y = player.body.position.y-50;
+
 const generator = new TerrainGenerator('seed' + Math.random(), sandProperties);
 
 function updateSand() {
@@ -101,12 +145,6 @@ function updateSand() {
             if (!sandWorld.getChunk(x, y)) {
                 let chunk = new Chunk(WIDTH, WIDTH);
                 chunk.data = generator.generateChunk(x, y, WIDTH, STRIDE);
-                // if (y > 3) {
-                //     if (Math.random() > .9) {
-                //         placeEnemy(x, y, chunk);
-                //     }
-                // }
-                // // scene.add(chunk.redMesh);
                 sandWorld.addChunk(x, y, chunk);
             }
         }
@@ -292,34 +330,34 @@ function initListeners() {
 }
 
 initListeners();
-const brushSize = 3;
+const brushSize = 5;
 let steps = 0;
 function render() {
-    viewOffset.x = player.body.position.x;
-    viewOffset.y = player.body.position.y;
+    if (!player.dead) {
+        viewOffset.x = player.body.position.x;
+        viewOffset.y = player.body.position.y;
+    }
 
     cameraPivot.position.set(-(viewOffset.x - pix_width/2)*4, -(viewOffset.y - pix_height/2)*4);
     steps++;
-    if (Mouse.leftDown) {
-        
+    if (inMenu) {
+        if (Mouse.leftDown) {
+            resetGame();
+            unhideHUD();
+            inMenu = false;
+        }
         let mousePos = new THREE.Vector2(Mouse.x, Mouse.y);
         mousePos.divideScalar(4).floor();
-        let material = 1;
-        for (let i = 0; i < 10; i++) {
-            if (Key.isDown(Key.ZERO + i)) {
-                material = i+1;
-            }
-        }
-        if (Key.isDown(Key.R)) {
-            material = nameMap.get('oil')+1;
-        }
-        if (Key.isDown(Key.M)) {
-            material = nameMap.get('lava')+1;
-        }
-
-        if (material !== 1) {
-            for (let i = -brushSize+1; i < brushSize; i++) {
-                for (let j = -brushSize+1; j < brushSize; j++) {
+        let oil = nameMap.get('oil')+1;
+        let lava = nameMap.get('lava')+1;
+        let water = nameMap.get('water')+1;
+        let gunpowder = nameMap.get('gunpowder')+1;
+        let snow = nameMap.get('snow')+1;
+        let methane = nameMap.get('methane')+1;
+        let material = [oil, lava, water, gunpowder, snow, methane][Math.floor(Date.now() / 3000) % 6];
+        for (let i = -brushSize+1; i < brushSize; i++) {
+            for (let j = -brushSize+1; j < brushSize; j++) {
+                if (Math.random() > .5) {
                     sandWorld.setGlobalValue(Math.floor(mousePos.x + i + viewOffset.x - pix_width/2), Math.floor(mousePos.y + j + viewOffset.y - pix_height/2), 0, material);
                 }
             }

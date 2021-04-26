@@ -92,3 +92,18 @@
     text-align: right;
     color: white;
 }
+
+.title {
+    margin-top: 100px;
+    width: 100%;
+    text-align: center;
+    color: black;
+    font-size: 100;
+}
+
+.subtitle {
+    width: 100%;
+    text-align: center;
+    color: black;
+    font-size: 20;
+}

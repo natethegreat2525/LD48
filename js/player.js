@@ -6,6 +6,10 @@ import { nameMap, sandProperties } from './sandworld';
 import { drillMat, drill1Mat, drill2Mat, playerMat, playerMat1, playerMat2 } from './materials';
 import { Mouse } from './mouse';
 
+const crashSound = new Audio('./crash.wav');
+const explosionSound = new Audio('./explosion.mp3');
+const drillSound = new Audio('./drill.wav');
+
 export class Player {
     constructor(position, world, scene) {
         this.position = position;
@@ -36,7 +40,7 @@ export class Player {
         this.maxStorage = 1;
         this.drillEfficiency = 1;
 
-        this.money = 1000000;
+        this.money = 50;
 
         this.maxDepth = 0;
 
@@ -72,6 +76,7 @@ export class Player {
         mesh.add(this.drillPivot);
         scene.add(mesh);
         this.mesh = mesh;
+        this.scene = scene;
 
         this.notifyTimer = 0;
         this.oldVelocity = [0, 0, 0, 0, 0, 0];
@@ -167,6 +172,7 @@ export class Player {
         const darkDirt = nameMap.get('darkdirt');
         const mud = nameMap.get('mud');
         const exhaust = nameMap.get('exhaust');
+        let wood = nameMap.get('wood');
         let numDug = 0;
         for (let j = -rad; j <= rad; j++) {
             for (let k = -rad; k <= rad; k++) {
@@ -188,7 +194,8 @@ export class Player {
                             }
                             numDug++;
                             sandWorld.setGlobalValue(px + j, py + k, 0, 0);
-                            if (Math.random() > 1.05 - .01 * this.drillEfficiency) {
+                            if (Math.random() > 1.05 - .01 * this.drillEfficiency
+                                || (val === wood && Math.random() > .5)) {
                                 sandWorld.setGlobalValue(px + j, py + k, 0, nameMap.get('fire')+1)
                             }
                         }
@@ -210,8 +217,6 @@ export class Player {
         let lava = nameMap.get('lava') + 1;
         let water = nameMap.get('water') + 1;
         let fire = nameMap.get('fire') + 1;
-        let wood = nameMap.get('wood') + 1;
-        let burningWood = nameMap.get('burnedwood') + 1;
         let fireDamage = 0;
         for (let i = 0; i < 14; i++) {
             let j = Math.floor(Math.random() * 10)
@@ -225,9 +230,6 @@ export class Player {
             }
             if (val === lava || val === fire) {
                 fireDamage++;
-            }
-            if (val === wood && Math.random() > .5) {
-                sandWorld.setGlobalValue(x, y, 0, burningWood);
             }
         }
 
@@ -252,6 +254,7 @@ export class Player {
             let dmg = Math.floor(Math.pow((this.oldVelocity[this.oldVelocity.length - 1] - (1.5 + this.armor / 2)), 2) * 10);
             this.updateNotifyText("-" + dmg + " FALL DAMAGE", true);
             this.damage(dmg);
+            crashSound.play();
             for (let i = 0; i < 5; i++) {
                 this.smokePlayer(sandWorld);
             }
@@ -262,8 +265,8 @@ export class Player {
     getResourceValue() {
         const costPerItem = {
             'limestone': 0.05,
-            'quartz': 1,
-            'copper': 0.16,
+            'copper': 0.08,
+            'quartz': 2,
             'iron': 0.32,
             'ruby': 8,
             'emerald': 16,
@@ -296,6 +299,19 @@ export class Player {
         return 15 * Math.pow(2, lvl);
     }
 
+    die(sandWorld) {
+        let lava = nameMap.get('lava');
+        let oil = nameMap.get('oil');
+
+        for (let i = 0; i < 14; i++) {
+            for (let j = 0; j < 10; j++) {
+                let x = Math.floor(i + this.body.position.x - this.width/2);
+                let y = Math.floor(j + this.body.position.y - this.height/2);
+                sandWorld.setGlobalValue(x, y, 0, Math.random() > .5 ? lava + 1 : oil + 1);
+            }
+        }
+    }
+
     updateShop() {
         let shop = document.getElementById('shop');
         let inShop = this.body.position.x > 60 && this.body.position.x < 130 && this.body.position.y < 10 && this.body.position.y > -70;
@@ -326,6 +342,12 @@ export class Player {
             btn.innerText = "Upgrade $" + this.getUpgradeCost(lvl).toLocaleString('en');
         }
 
+        this.drillEfficiency = Math.max(1, this.drillEfficiency);
+        this.maxStorage = Math.max(1, this.maxStorage);
+        this.armor = Math.max(1, this.armor);
+        this.energyEfficiency = Math.max(1, this.energyEfficiency);
+        this.cooling = Math.max(1, this.cooling);
+
         updateButtonTxt('drill-speed-upgrade', this.drillEfficiency);
         updateButtonTxt('storage-volume-upgrade', this.maxStorage);
         updateButtonTxt('hull-strength-upgrade', this.armor);
@@ -343,7 +365,7 @@ export class Player {
 
     smokePlayerHealth(sandWorld) {
         let perc = this.health / this.healthCapacity;
-        if (perc < .66 && Math.random() > perc * 1.5) {
+        if (perc < .66 && Math.random() > perc * 1.5 && !this.dead) {
             this.smokePlayer(sandWorld);
         }
     }
@@ -358,6 +380,36 @@ export class Player {
         this.checkFallDamage(sandWorld);
         this.updateShop();
         this.smokePlayerHealth(sandWorld);
+
+        if ((this.health <= 0 || this.energy <= 0) && !this.dead) {
+            explosionSound.play();
+            drillSound.pause();
+            this.die(sandWorld);
+            this.dead = true;
+            this.scene.remove(this.mesh);
+            setTimeout(() => {
+                //revive
+                this.scene.add(this.mesh);
+                Matter.Body.setPosition(this.body, new Vector2(0, 0));
+                this.maxStorage--;
+                this.armor--;
+                this.energyEfficiency--;
+                this.drillEfficiency--;
+                this.cooling--;
+
+                this.updateShop();
+                this.dead = false;
+                this.health = this.healthCapacity;
+                this.energy = this.energyCapacity;
+                this.storage = 0;
+                this.inventory = [];
+
+            }, 7000);
+        }
+
+        if (this.dead) {
+            return;
+        }
 
         this.notifyTimer--;
         this.warnTimer--;
@@ -376,10 +428,20 @@ export class Player {
         }
         this.energy -= DEFAULT_ENERGY;
         if (Mouse.leftDown || this.digTimer > 0) {
+            if (drillSound.paused) {
+                drillSound.play();
+                drillSound.loop = true;
+                drillSound.volume = 1;
+                drillSound.currentTime = 2;
+            }
             this.energy -= DIG_ENERGY;
             this.digTimer++;
             this.drillTimer++;
         } else {
+            drillSound.volume *= .9;
+            if (drillSound.volume < .1) {
+                drillSound.pause();
+            }
             this.digTimer = 0;
         }
         if (this.digTimer > 0 && this.digTimer >= (14-this.drillEfficiency*4) + (this.body.position.y / 64)) {
