@@ -119,11 +119,11 @@ export class TerrainGenerator {
                     let lavaThresh = this.noise2.noise2D(rx / 128, ry / 256);
                     let oilThresh = this.noise1.noise2D(rx / 256, ry / 128);
                     let gasThresh = this.noise2.noise3D(ry / 256, rx / 128, 23);
-                    if (lavaThresh > .8 && cy > 35) {
+                    if (lavaThresh > .8 && cy > 25) {
                         data[idx] = lava;
-                    } else if (gasThresh > .8 && cy > 28) {
+                    } else if (gasThresh > .8 && cy > 20) {
                         data[idx] = methane;
-                    } else if (oilThresh > .8 && cy > 23) {
+                    } else if (oilThresh > .8 && cy > 15) {
                         data[idx] = oil;
                     } else if (waterThresh > .8 && cy > 5) {
                         data[idx] = water;
