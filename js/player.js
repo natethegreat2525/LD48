@@ -21,8 +21,8 @@ export class Player {
         this.digTimer = 0;
         this.drillTimer = 0;
 
-        this.energy = 100;
-        this.health = 100;
+        this.energy = 150;
+        this.health = 75;
         this.coolant = 0;
         this.storage = 0;
 
@@ -36,11 +36,15 @@ export class Player {
         this.maxStorage = 1;
         this.drillEfficiency = 1;
 
+        this.money = 1000000;
+
+        this.maxDepth = 0;
+
         this.inventory = [];
 
         this.forceDir = new Vector2();
 
-        const wmul = .8;
+        const wmul = .5;
         this.body = Matter.Bodies.fromVertices(position.x, position.y, [
             new Vector2(chamfer, 0), new Vector2(width*wmul-chamfer, 0),
             new Vector2(width*wmul, chamfer), new Vector2(width*wmul, height-chamfer),
@@ -70,7 +74,7 @@ export class Player {
         this.mesh = mesh;
 
         this.notifyTimer = 0;
-        this.oldVelocity = [0, 0, 0, 0];
+        this.oldVelocity = [0, 0, 0, 0, 0, 0];
         this.warnTimer = 0;
     }
 
@@ -85,20 +89,23 @@ export class Player {
         energyBar.style.height = toPerc(this.energy, this.energyCapacity);
         coolantBar.style.height = toPerc(this.coolant, 100);
         storageBar.style.height = toPerc(this.storage, this.storageCapacity);
+
+        let scoreBox = document.getElementById('scorebox');
+        this.maxDepth = Math.max(this.maxDepth, this.body.position.y);
+        scoreBox.innerText = 'Current Depth: ' + Math.floor(this.body.position.y) + '\n' +
+        'Max Depth: ' + Math.floor(this.maxDepth);
     }
 
     damage(val) {
-        console.log("damage", val);
         this.health -= val;
+        if (this.health < 0) {
+            this.health = 0;
+        }
     }
 
     collisionStart(pair) {
         if ((pair.bodyA === this.sensor && pair.bodyB !== this.body) || (pair.bodyB === this.sensor && pair.bodyA !== this.body)) {
             this.grounded++;
-            if (this.oldVelocity[1] > 2.5 + this.armor/2) {
-                this.damage((this.oldVelocity[1] - (1.5 + this.armor / 2)) * 10)
-                this.oldVelocity = [0, 0, 0, 0];
-            }
         }
     }
 
@@ -146,7 +153,8 @@ export class Player {
         }, 3000);
     }
 
-    digLocation(curX, curY, rad, sandWorld, angle) {
+    digLocation(curX, curY, rad, sandWorld, angle, second) {
+        second = second || 0;
         const px = Math.floor(curX);
         const py = Math.floor(curY);
         const aX = Math.cos(angle);
@@ -158,6 +166,8 @@ export class Player {
         const dirt = nameMap.get('dirt');
         const darkDirt = nameMap.get('darkdirt');
         const mud = nameMap.get('mud');
+        const exhaust = nameMap.get('exhaust');
+        let numDug = 0;
         for (let j = -rad; j <= rad; j++) {
             for (let k = -rad; k <= rad; k++) {
                 const dist = new Vector2(px + j, py + k).distanceTo(new Vector2(curX, curY));
@@ -167,7 +177,7 @@ export class Player {
                         let props = sandProperties[val-1];
                         val--;
                         if (!props.liquid && !props.gas) {
-                            if (val !== stone && val !== darkStone && val !== dirt && val !== darkDirt && val !== grass && val !== darkGrass) {
+                            if (val !== stone && val !== darkStone && val !== dirt && val !== darkDirt && val !== grass && val !== darkGrass && val !== exhaust && val !== mud) {
                                 if (this.storage < this.storageCapacity) {
                                     this.inventory.push(val);
                                     this.storage+=.2;
@@ -176,11 +186,18 @@ export class Player {
                                     this.updateNotifyText("STORAGE FULL", true);
                                 }
                             }
+                            numDug++;
                             sandWorld.setGlobalValue(px + j, py + k, 0, 0);
+                            if (Math.random() > 1.05 - .01 * this.drillEfficiency) {
+                                sandWorld.setGlobalValue(px + j, py + k, 0, nameMap.get('fire')+1)
+                            }
                         }
                     }
                 }
             }
+        }
+        if (!numDug && second < 2) {
+            this.digLocation(curX + Math.cos(angle)*2, curY + Math.sin(angle)*2, rad, sandWorld, angle, second + 1);
         }
     }
 
@@ -190,27 +207,157 @@ export class Player {
 
     checkInteractions(sandWorld) {
         let numWaterAbsorbed = 0;
+        let lava = nameMap.get('lava') + 1;
+        let water = nameMap.get('water') + 1;
+        let fire = nameMap.get('fire') + 1;
+        let wood = nameMap.get('wood') + 1;
+        let burningWood = nameMap.get('burnedwood') + 1;
+        let fireDamage = 0;
         for (let i = 0; i < 14; i++) {
             let j = Math.floor(Math.random() * 10)
             let x = Math.floor(i + this.body.position.x - this.width/2);
             let y = Math.floor(j + this.body.position.y - this.height/2);
             let val = sandWorld.getGlobalValue(x, y);
-            if (val === nameMap.get('water') + 1 && this.coolant < 100 && numWaterAbsorbed < 3) {
+            if (val === water && this.coolant < 100 && numWaterAbsorbed < 3) {
                 sandWorld.setGlobalValue(x, y, 0, 0);
                 this.coolant += .1;
                 numWaterAbsorbed++;
+            }
+            if (val === lava || val === fire) {
+                fireDamage++;
+            }
+            if (val === wood && Math.random() > .5) {
+                sandWorld.setGlobalValue(x, y, 0, burningWood);
+            }
+        }
+
+        if (fireDamage) {
+            let maxReduction = this.cooling*2;
+            let efficiency = 1/this.cooling;
+            let maxRealReduction = Math.min(maxReduction, this.coolant / efficiency);
+            if (fireDamage > maxRealReduction) {
+                fireDamage -= maxRealReduction;
+                this.coolant -= maxRealReduction * efficiency;
+                this.damage(fireDamage);
+                this.updateNotifyText('HOT!!!', true);
+            } else {
+                this.coolant -= fireDamage * efficiency;
             }
         }
 
     }
 
+    checkFallDamage(sandWorld) {
+        if (this.body.velocity.y < 1 && this.oldVelocity[this.oldVelocity.length - 1] > 2.5 + this.armor/2) {
+            let dmg = Math.floor(Math.pow((this.oldVelocity[this.oldVelocity.length - 1] - (1.5 + this.armor / 2)), 2) * 10);
+            this.updateNotifyText("-" + dmg + " FALL DAMAGE", true);
+            this.damage(dmg);
+            for (let i = 0; i < 5; i++) {
+                this.smokePlayer(sandWorld);
+            }
+            this.oldVelocity = [0, 0, 0, 0, 0, 0];
+        }
+    }
+
+    getResourceValue() {
+        const costPerItem = {
+            'limestone': 0.05,
+            'quartz': 1,
+            'copper': 0.16,
+            'iron': 0.32,
+            'ruby': 8,
+            'emerald': 16,
+            'gold': 2.56,
+            'diamond': 64,
+            'unobtanium': 128,
+        };
+
+        let money = 0;
+
+        for (let i of this.inventory) {
+            let name = sandProperties[i].name;
+            let cost = costPerItem[name];
+            if (cost) {
+                money += cost;
+            }
+        }
+        return money;
+    }
+
+    getRefuelCost() {
+        return Math.ceil((this.energyCapacity - this.energy) * .1);
+    }
+
+    getRepairCost() {
+        return Math.ceil((this.healthCapacity - this.health) * .3);
+    }
+
+    getUpgradeCost(lvl) {
+        return 15 * Math.pow(2, lvl);
+    }
+
+    updateShop() {
+        let shop = document.getElementById('shop');
+        let inShop = this.body.position.x > 60 && this.body.position.x < 130 && this.body.position.y < 10 && this.body.position.y > -70;
+        shop.style.display = inShop ? 'block' : 'none';
+
+        let money = document.getElementById('money');
+        money.innerText = 'Money: $' + this.money.toLocaleString('en');
+
+        let sellAll = document.getElementById('sell-all');
+        sellAll.innerText = 'Sell Resources +$' + this.getResourceValue().toLocaleString('en');
+
+        let refillFuel = document.getElementById('refill-fuel');
+        refillFuel.innerText = 'Refill Fuel\n$' + this.getRefuelCost().toLocaleString('en');
+
+        let repairHull = document.getElementById('repair-hull');
+        repairHull.innerText = 'Repair Hull\n$' + this.getRepairCost().toLocaleString('en');
+
+        let updateButtonTxt = (id, lvl) => {
+            let btn = document.getElementById(id);
+            let num = document.getElementById(id + '-num');
+            if (lvl === 10) {
+                btn.disabled = true;
+                btn.innerText = 'Max Upgrade';
+                num.innerText = '';
+                return;
+            }
+            num.innerText = lvl;
+            btn.innerText = "Upgrade $" + this.getUpgradeCost(lvl).toLocaleString('en');
+        }
+
+        updateButtonTxt('drill-speed-upgrade', this.drillEfficiency);
+        updateButtonTxt('storage-volume-upgrade', this.maxStorage);
+        updateButtonTxt('hull-strength-upgrade', this.armor);
+        updateButtonTxt('fuel-tank-upgrade', this.energyEfficiency);
+        updateButtonTxt('cooling-speed-upgrade', this.cooling);
+        this.storageCapacity = Math.pow(1.5, this.maxStorage) * 50;
+        this.healthCapacity = Math.pow(1.5, this.armor) * 50;
+        this.energyCapacity = Math.pow(1.5, this.energyEfficiency) * 100;
+    }
+    smokePlayer(sandWorld) {
+        let x = Math.floor(Math.random()*3 + this.body.position.x - this.width/2);
+        let y = Math.floor(Math.random()*3 + this.body.position.y - this.height/2);
+        sandWorld.setGlobalValue(x, y, 0, nameMap.get('smoke')+1);
+    }
+
+    smokePlayerHealth(sandWorld) {
+        let perc = this.health / this.healthCapacity;
+        if (perc < .66 && Math.random() > perc * 1.5) {
+            this.smokePlayer(sandWorld);
+        }
+    }
+
     update(sandWorld, offset, pixSize) {
-        const MOVE_ENERGY = .01;
-        const FLY_ENERGY = .1;
-        const DIG_ENERGY = .03;
-        const DEFAULT_ENERGY = .01;
+        const MOVE_ENERGY = .005;
+        const FLY_ENERGY = .05;
+        const DIG_ENERGY = .015;
+        const DEFAULT_ENERGY = .005;
         this.updateHUD();
         this.checkInteractions(sandWorld);
+        this.checkFallDamage(sandWorld);
+        this.updateShop();
+        this.smokePlayerHealth(sandWorld);
 
         this.notifyTimer--;
         this.warnTimer--;
@@ -235,7 +382,7 @@ export class Player {
         } else {
             this.digTimer = 0;
         }
-        if (this.digTimer >= this.drillEfficiency) {
+        if (this.digTimer > 0 && this.digTimer >= (14-this.drillEfficiency*4) + (this.body.position.y / 64)) {
             this.digTimer = 0;
             this.digTerrain(sandWorld, Math.atan2(diff.y, diff.x), 7);
         }
@@ -256,13 +403,8 @@ export class Player {
 
         let jump = Key.isDown(Key.UP) || Key.isDown(Key.W);
 
-        if (jump && this.grounded > 0) {
-            newVy = -1.2*2;
-        }
-        if (jump && this.grounded === 0 && this.keyUpNotPressed) {
+        if (jump) {
             this.usingJetpack = true;
-        }
-        if (jump && this.usingJetpack) {
             this.energy -= FLY_ENERGY;
             newVy -= .3;
             if (newVy < 0) {

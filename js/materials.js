@@ -13,6 +13,7 @@ const playerTex2 = loadBlockyTexture("player-2.png");
 const drillTex = loadBlockyTexture("drill.png");
 const drill1Tex = loadBlockyTexture("drill-1.png");
 const drill2Tex = loadBlockyTexture("drill-2.png");
+const shopTex = loadBlockyTexture("shop.png");
 
 const genPlayerMaterial = (tex) => new THREE.MeshBasicMaterial({
     map: tex,
@@ -26,6 +27,7 @@ export const playerMat2 = genPlayerMaterial(playerTex2);
 export const drillMat = genPlayerMaterial(drillTex);
 export const drill1Mat = genPlayerMaterial(drill1Tex);
 export const drill2Mat = genPlayerMaterial(drill2Tex);
+export const shopMat = genPlayerMaterial(shopTex);
 
 export const redMat = new THREE.MeshBasicMaterial({
     color: 0xff0000,

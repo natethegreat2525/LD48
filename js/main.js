@@ -8,6 +8,7 @@ import { Lighting } from './lighting';
 import { TerrainGenerator } from './generation';
 import { Chunk, sandProperties, SandWorld, STRIDE, WIDTH, nameMap } from './sandworld';
 import { Player } from './player';
+import { shopMat } from './materials';
 
 
 const renderer = new THREE.WebGLRenderer();
@@ -60,13 +61,17 @@ scene.add(mesh);
 const cameraPivot = new THREE.Object3D();
 scene.add(cameraPivot);
 
+const shop = new THREE.Mesh(new THREE.PlaneGeometry(90*4, 60*4), shopMat);
+shop.position.set(400, -100, -10);
+cameraPivot.add(shop);
+
 mesh.position.set(width/2, height/2, 0);
 
 const sandWorld = new SandWorld();
 
 const player = new Player(new Vector2(0, 0), sandWorld, scene);
 const entities = [player];
-const generator = new TerrainGenerator('seed', sandProperties);
+const generator = new TerrainGenerator('seed' + Math.random(), sandProperties);
 
 function updateSand() {
 
@@ -216,6 +221,7 @@ function copySandToTex() {
     mesh.position.set(texPixWidth*2 - chunkRelX*4, texPixHeight*2 - chunkRelY*4, 0)
 }
 
+
 function initListeners() {
     Mouse.init(document);
     Events.on(sandWorld.engine, 'collisionStart', event => {
@@ -238,6 +244,51 @@ function initListeners() {
             }
         }
     });
+
+    document.getElementById('sell-all').onclick = () => {
+        player.money += player.getResourceValue();
+        player.inventory = [];
+        player.storage = 0;
+    }
+
+    document.getElementById('repair-hull').onclick = () => {
+        if (player.money >= player.getRepairCost()) {
+            player.money -= player.getRepairCost();
+            player.health = player.healthCapacity;
+        }
+    }
+
+    document.getElementById('refill-fuel').onclick = () => {
+        if (player.money >= player.getRefuelCost()) {
+            player.money -= player.getRefuelCost();
+            player.energy = player.energyCapacity;
+        }
+    }
+
+    let setButtonHandler = (id, field) => {
+        document.getElementById(id).onclick = () => {
+            if (player.money >= player.getUpgradeCost(player[field])) {
+                player.money -= player.getUpgradeCost(player[field]);
+                player[field]++;
+                // some fields below get topped up when upgraded
+                if (field === 'energyEfficiency') {
+                    player.energyCapacity *= 1.5; //not really needed except to prevent visual glitch
+                    player.energy = player.energyCapacity;
+                }
+                if (field === 'armor') {
+                    player.healthCapacity *= 1.5; //not really needed except to prevent visual glitch
+                    player.health = player.healthCapacity;
+                }
+            }
+        }
+    }
+
+    setButtonHandler('drill-speed-upgrade', 'drillEfficiency');
+    setButtonHandler('storage-volume-upgrade', 'maxStorage');
+    setButtonHandler('hull-strength-upgrade', 'armor');
+    setButtonHandler('fuel-tank-upgrade', 'energyEfficiency');
+    setButtonHandler('cooling-speed-upgrade', 'cooling');
+
 }
 
 initListeners();

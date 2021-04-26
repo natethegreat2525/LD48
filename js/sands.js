@@ -42,7 +42,7 @@ export const originalSand = [
     dynamic: true,
     static: true,
     falling: true,
-    color: new THREE.Color(0x888888),
+    color: new THREE.Color(0xaaaaaa),
 },
 {
     name: 'gunpowder',

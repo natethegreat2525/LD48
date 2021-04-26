@@ -25,3 +25,70 @@
     opacity: 0;
     animation: fadeOut linear 3s;
 }
+
+.shop {
+    background: rgba(0, 0, 0, .8);
+    position: absolute;
+    width: 600px;
+    top: 10px;
+    left: 300px;
+}
+
+.shopcol {
+    display: inline-block
+}
+
+.shoprow {
+    width: 250px;
+    margin: 10px;
+    padding: 10px;
+    color: white;
+    background: rgba(0, 0, 0, .8);
+}
+
+.shoprowrow {
+    display: inline-block;
+}
+
+.shoprowbutton {
+    display: inline-block;
+    float: right;
+}
+
+.buybutton {
+    display: block;
+    margin: 10px;
+    padding: 10px;
+    width: 120px;
+    height: 60px;
+}
+
+.sellbutton {
+    position: relative;
+    top: -69px;
+    margin: 10px;
+    padding: 10px;
+    width: 120px;
+    height: 60px;
+    background: rgb(0, 200, 0);
+}
+.shopright {
+    position: absolute;
+    right: 10px;
+    top: 10px;
+}
+.moneytext {
+    text-align: center;
+    color: white;
+}
+
+.score {
+    background: rgba(0, 0, 0, .8);
+    position: absolute;
+    width: 200px;
+    top: 10px;
+    right: 10px;
+    padding: 10px;
+    text-align: right;
+    color: white;
+}

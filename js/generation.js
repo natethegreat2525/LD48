@@ -65,28 +65,13 @@ export class TerrainGenerator {
         const sand = this.nameMap.get('sand');
         const methane = this.nameMap.get('methane');
         const unobtanium = this.nameMap.get('unobtanium');
+        const wood = this.nameMap.get('wood');
+        const leaf = this.nameMap.get('leaf');
 
         const hasOre = this.noise1.noise2D(cx, cy);
         const selectOre = [limestone, quartz, copper, iron, ruby, emerald, gold, diamond, unobtanium];
         const oreBase = .2;
         const whichOre = Math.floor(Math.min(9, cy/4) * (hasOre - oreBase) / (1 - oreBase));
-        if (cx === -5 && cy === -1) {
-            for (let i = 0; i < data.length; i++) {
-                if (Math.random() > .5) {
-                    data[i] = sand;
-                }
-            }
-            return data;
-        }
-
-        if (cx === 5 && cy === -1) {
-            for (let i = 0; i < data.length; i++) {
-                if (Math.random() > .5) {
-                    data[i] = water;
-                }
-            }
-            return data;
-        }
 
         let idx = 0;
 
@@ -111,8 +96,16 @@ export class TerrainGenerator {
 
         for (let y = 0; y < size; y++) {
             for (let x = 0; x < size; x++) {
+                
                 let rx = cx*size + x;
                 let ry = cy*size + y;
+
+                let tree = this.getTree(rx, ry, wood, leaf);
+                if (tree) {
+                    data[idx] = tree;
+                    idx+=stride;
+                    continue;
+                }
 
                 let heightOffset = this.noise1.noise2D(rx/100, 0)*5;
                 if (ry > 0 + heightOffset) {
@@ -221,6 +214,23 @@ export class TerrainGenerator {
         }
         
         return data;
+    }
+
+    getTree(rx, ry, wood, leaf) {
+        if (rx > -100 && rx < 100) {
+            return 0;
+        }
+        rx = Math.abs(rx) % 100;
+        if (rx > 46 && rx < 54 && ry < 10 && ry > -60) {
+            return wood;
+        }
+        let dx = 50 - rx;
+        let dy = -60 - ry;
+        let dist = Math.sqrt(dx*dx + dy*dy);
+        if (dist < 25) {
+            return leaf;
+        }
+        return 0;
     }
 }
 
